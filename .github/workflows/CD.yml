@@ -1,0 +1,139 @@
+name: Publish latest
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+
+env:
+  CARGO_TERM_COLOR: always
+  CROSS_CONFIG: Cross.toml
+
+jobs:
+  upload_license:
+    name: Upload License
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: LICENSE
+          path: LICENSE
+
+  build:
+    name: Build onagre ${{ matrix.os }}-${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - os: ubuntu-latest
+            target: armv7-unknown-linux-musleabihf
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: "true"
+          key: "${{ matrix.os }}-${{ matrix.target }}"
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+
+
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --target ${{ matrix.target }} --release --locked
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/onagre
+
+
+  upload_to_release:
+    needs: [ build, upload_license]
+    name: Publish onagre binaries
+    runs-on: ubuntu-latest
+    if: ${{ github.ref_type == 'tag' }}
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          path: ~/artifacts
+
+      - name: Copy artifacts to archive
+        run: |
+          mkdir x86_64-unknown-linux-musl
+          cp -r /home/runner/artifacts/x86_64-unknown-linux-musl/onagre x86_64-unknown-linux-musl/onagre
+          chmod +x -R  x86_64-unknown-linux-musl/onagre
+          cp -r /home/runner/artifacts/LICENSE/LICENSE x86_64-unknown-linux-musl/
+          tar -czf onagre-x86_64-unknown-linux-musl.tar.gz x86_64-unknown-linux-musl/*
+          
+          mkdir x86_64-unknown-linux-gnu
+          cp -r /home/runner/artifacts/x86_64-unknown-linux-gnu/onagre x86_64-unknown-linux-gnu/onagre
+          chmod +x -R  x86_64-unknown-linux-gnu/onagre
+          cp -r /home/runner/artifacts/LICENSE/LICENSE x86_64-unknown-linux-gnu/
+          tar -czf onagre-x86_64-unknown-linux-gnu.tar.gz x86_64-unknown-linux-gnu/*
+
+          mkdir armv7-unknown-linux-musleabihf
+          cp -r /home/runner/artifacts/armv7-unknown-linux-musleabihf/onagre armv7-unknown-linux-musleabihf/onagre
+          chmod +x -R  armv7-unknown-linux-musleabihf/onagre
+          cp -r /home/runner/artifacts/LICENSE/LICENSE armv7-unknown-linux-musleabihf/
+          tar -czf onagre-armv7-unknown-linux-musleabihf.tar.gz armv7-unknown-linux-musleabihf/*
+
+      - uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: onagre-x86_64-unknown-linux-musl.tar.gz
+          tag: ${{ github.ref }}
+          asset_name: onagre-${{ github.ref_name }}-x86_64-unknown-linux-musl.tar.gz
+
+      - uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: onagre-armv7-unknown-linux-musleabihf.tar.gz
+          tag: ${{ github.ref_name }}
+          asset_name: onagre-${{ github.ref_name }}-armv7-unknown-linux-musleabihf.tar.gz
+
+      - uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: onagre-armv7-unknown-linux-musleabihf.tar.gz
+          tag: ${{ github.ref_name }}
+          asset_name: onagre-${{ github.ref_name }}-armv7-unknown-linux-musleabihf.tar.gz
+
+  update_pages:
+    name: Deploy pages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Build VuePress site
+        working-directory: ./docs/website
+        run: pnpm install && pnpm docs:build
+
+      - name: Deploy to GitHub Pages
+        uses: crazy-max/ghaction-github-pages@v4
+        with:
+          fqdn: docs.onagre.dev
+          target_branch: gh-pages
+          build_dir: docs/website/src/.vuepress/dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -9,7 +9,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use app::style::Theme;
-use data::InputFormat;
+use data::{InputFormat, SelectionMode};
 
 pub mod app;
 pub mod config;
@@ -55,6 +55,14 @@ struct Cli {
         help = "Whether the CSV input has a header row"
     )]
     header: bool,
+
+    #[arg(
+        long = "mode",
+        short = 'm',
+        default_value = "row",
+        help = "Selection mode(s): row, column, cell. Repeat for multiple (e.g. --mode row --mode cell)"
+    )]
+    mode: Vec<String>,
 }
 
 pub fn main() -> iced::Result {
@@ -101,5 +109,19 @@ pub fn main() -> iced::Result {
         )
     );
 
-    app::run(table)
+    let available_modes: Vec<SelectionMode> = cli
+        .mode
+        .iter()
+        .map(|m| match m.as_str() {
+            "row" => SelectionMode::Row,
+            "column" => SelectionMode::Column,
+            "cell" => SelectionMode::Cell,
+            other => {
+                eprintln!("Unknown mode: {other}. Valid modes: row, column, cell");
+                std::process::exit(1);
+            }
+        })
+        .collect();
+
+    app::run(table, available_modes)
 }

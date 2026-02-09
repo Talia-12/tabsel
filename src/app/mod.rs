@@ -3,7 +3,7 @@ use std::process::exit;
 use iced::widget::{column, container, scrollable, text, Button, Column, Container, Row};
 use iced::{event, window, Alignment, Application, Command, Element, Length, Settings, Subscription};
 use iced_core::keyboard::key::Named;
-use iced_core::keyboard::Key;
+use iced_core::keyboard::{Key, Modifiers};
 use iced_core::widget::operation::scrollable::RelativeOffset;
 use iced_core::window::settings::PlatformSpecific;
 use iced_core::{Event, Font, Pixels, Size};
@@ -12,14 +12,14 @@ use once_cell::sync::Lazy;
 use tracing::debug;
 
 use crate::app::style::rows::button::ButtonStyle;
-use crate::data::Table;
+use crate::data::{SelectionMode, Table};
 use crate::THEME;
 
 pub mod entries;
 pub mod state;
 pub mod style;
 
-pub fn run(table: Table) -> iced::Result {
+pub fn run(table: Table, available_modes: Vec<SelectionMode>) -> iced::Result {
     debug!("Starting Tabsel in debug mode");
 
     let default_font = THEME
@@ -52,7 +52,10 @@ pub fn run(table: Table) -> iced::Result {
         default_text_size: Pixels::from(THEME.font_size),
         antialiasing: true,
         default_font,
-        flags: TabselFlags { table },
+        flags: TabselFlags {
+            table,
+            available_modes,
+        },
         fonts: vec![],
     })
 }
@@ -66,7 +69,7 @@ pub struct Tabsel {
 pub enum Message {
     Loading,
     Click(usize),
-    KeyboardEvent(Key),
+    KeyboardEvent(Key, Modifiers),
     Unfocused,
 }
 
@@ -74,6 +77,7 @@ static SCROLL_ID: Lazy<scrollable::Id> = Lazy::new(scrollable::Id::unique);
 
 pub struct TabselFlags {
     pub table: Table,
+    pub available_modes: Vec<SelectionMode>,
 }
 
 impl Application for Tabsel {
@@ -83,9 +87,12 @@ impl Application for Tabsel {
     type Flags = TabselFlags;
 
     fn new(flags: TabselFlags) -> (Self, Command<Self::Message>) {
+        let active_mode = flags.available_modes[0];
         let tabsel = Tabsel {
             state: state::State {
                 table: flags.table,
+                active_mode,
+                available_modes: flags.available_modes,
                 ..Default::default()
             },
         };
@@ -103,7 +110,7 @@ impl Application for Tabsel {
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             Message::Loading => Command::none(),
-            Message::KeyboardEvent(event) => self.handle_input(event),
+            Message::KeyboardEvent(key, modifiers) => self.handle_input(key, modifiers),
             Message::Click(row_idx) => {
                 self.state.selected_row = row_idx;
                 self.on_confirm()
@@ -131,8 +138,7 @@ impl Application for Tabsel {
                 .iter()
                 .map(|h| {
                     Container::new(
-                        text(h.as_str())
-                            .size(header_style.title.font_size),
+                        text(h.as_str()).size(header_style.title.font_size),
                     )
                     .style(iced::theme::Container::Custom(Box::new(
                         &header_style.title,
@@ -153,25 +159,33 @@ impl Application for Tabsel {
 
         // Data rows
         for (idx, row_data) in self.state.table.rows.iter().enumerate() {
-            let is_selected = idx == self.state.selected_row;
-            let row_style = if is_selected {
-                &THEME.app_container.rows.row_selected
-            } else {
-                &THEME.app_container.rows.row
-            };
-
             let cells: Vec<Element<'_, Self::Message>> = (0..num_cols)
                 .map(|col| {
+                    let selected = self.state.cell_is_selected(idx, col);
+                    let cell_style = if selected {
+                        &THEME.app_container.rows.row_selected
+                    } else {
+                        &THEME.app_container.rows.row
+                    };
+
                     let cell_text = row_data.get(col).map(|s| s.as_str()).unwrap_or("");
                     Container::new(
-                        text(cell_text).size(row_style.title.font_size),
+                        text(cell_text).size(cell_style.title.font_size),
                     )
-                    .style(iced::theme::Container::Custom(Box::new(&row_style.title)))
-                    .padding(row_style.title.padding.to_iced_padding())
+                    .style(iced::theme::Container::Custom(Box::new(&cell_style.title)))
+                    .padding(cell_style.title.padding.to_iced_padding())
                     .width(Length::FillPortion(1))
                     .into()
                 })
                 .collect();
+
+            // Row container uses selected style if any cell in the row is selected
+            let row_has_selection = (0..num_cols).any(|c| self.state.cell_is_selected(idx, c));
+            let row_style = if row_has_selection {
+                &THEME.app_container.rows.row_selected
+            } else {
+                &THEME.app_container.rows.row
+            };
 
             let row_content = Row::with_children(cells)
                 .width(Length::Fill)
@@ -191,12 +205,11 @@ impl Application for Tabsel {
         }
 
         // Scrollable containing all rows
-        let scrollable =
-            scrollable(column(rows_column))
-                .id(SCROLL_ID.clone())
-                .style(iced::theme::Scrollable::Custom(Box::new(
-                    THEME.scrollable(),
-                )));
+        let scrollable = scrollable(column(rows_column))
+            .id(SCROLL_ID.clone())
+            .style(iced::theme::Scrollable::Custom(Box::new(
+                THEME.scrollable(),
+            )));
 
         let scrollable = container(scrollable)
             .style(iced::theme::Container::Custom(Box::new(
@@ -233,10 +246,38 @@ impl Application for Tabsel {
 }
 
 impl Tabsel {
-    fn handle_input(&mut self, key_code: Key) -> Command<Message> {
+    fn handle_input(&mut self, key_code: Key, modifiers: Modifiers) -> Command<Message> {
+        // Shift+Tab cycles selection mode
+        if key_code == Key::Named(Named::Tab) && modifiers.shift() {
+            self.state.cycle_mode();
+            return Command::none();
+        }
+
         match key_code {
-            Key::Named(Named::ArrowUp) => return self.dec_selected(),
-            Key::Named(Named::ArrowDown) => return self.inc_selected(),
+            Key::Named(Named::ArrowUp) => {
+                match self.state.active_mode {
+                    SelectionMode::Row | SelectionMode::Cell => return self.dec_selected_row(),
+                    SelectionMode::Column => {}
+                }
+            }
+            Key::Named(Named::ArrowDown) => {
+                match self.state.active_mode {
+                    SelectionMode::Row | SelectionMode::Cell => return self.inc_selected_row(),
+                    SelectionMode::Column => {}
+                }
+            }
+            Key::Named(Named::ArrowLeft) => {
+                match self.state.active_mode {
+                    SelectionMode::Column | SelectionMode::Cell => return self.dec_selected_col(),
+                    SelectionMode::Row => {}
+                }
+            }
+            Key::Named(Named::ArrowRight) => {
+                match self.state.active_mode {
+                    SelectionMode::Column | SelectionMode::Cell => return self.inc_selected_col(),
+                    SelectionMode::Row => {}
+                }
+            }
             Key::Named(Named::Enter) => return self.on_confirm(),
             Key::Named(Named::Escape) => {
                 exit(0);
@@ -252,7 +293,7 @@ impl Tabsel {
         exit(0);
     }
 
-    fn inc_selected(&mut self) -> Command<Message> {
+    fn inc_selected_row(&mut self) -> Command<Message> {
         let total = self.state.visible_rows();
         if total > 0 && self.state.selected_row < total - 1 {
             self.state.selected_row += 1;
@@ -260,11 +301,26 @@ impl Tabsel {
         self.snap()
     }
 
-    fn dec_selected(&mut self) -> Command<Message> {
+    fn dec_selected_row(&mut self) -> Command<Message> {
         if self.state.selected_row > 0 {
             self.state.selected_row -= 1;
         }
         self.snap()
+    }
+
+    fn inc_selected_col(&mut self) -> Command<Message> {
+        let num_cols = self.state.num_columns();
+        if num_cols > 0 && self.state.selected_col < num_cols - 1 {
+            self.state.selected_col += 1;
+        }
+        Command::none()
+    }
+
+    fn dec_selected_col(&mut self) -> Command<Message> {
+        if self.state.selected_col > 0 {
+            self.state.selected_col -= 1;
+        }
+        Command::none()
     }
 
     fn snap(&self) -> Command<Message> {
@@ -286,11 +342,11 @@ impl Tabsel {
         event::listen_with(|event, _status| match event {
             Event::Window(_, window::Event::Unfocused) => Some(Message::Unfocused),
             Event::Keyboard(iced::keyboard::Event::KeyPressed {
-                modifiers: _,
+                modifiers,
                 text: _,
                 key,
                 location: _,
-            }) => Some(Message::KeyboardEvent(key)),
+            }) => Some(Message::KeyboardEvent(key, modifiers)),
             _ => None,
         })
     }

@@ -9,9 +9,11 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use app::style::Theme;
+use data::InputFormat;
 
 pub mod app;
 pub mod config;
+pub mod data;
 
 pub static THEME_PATH: Lazy<Mutex<PathBuf>> = Lazy::new(|| {
     Mutex::new(
@@ -38,6 +40,21 @@ struct Cli {
 
     #[arg(long = "scale", short = 's', help = "Change the scale of tabsel theme")]
     scale: Option<f32>,
+
+    #[arg(
+        long = "format",
+        short = 'f',
+        default_value = "csv",
+        help = "Input format: csv or json"
+    )]
+    format: String,
+
+    #[arg(
+        long = "header",
+        default_value = "true",
+        help = "Whether the CSV input has a header row"
+    )]
+    header: bool,
 }
 
 pub fn main() -> iced::Result {
@@ -65,5 +82,24 @@ pub fn main() -> iced::Result {
         info!("Using scale value : {:?}", scale);
     }
 
-    app::run()
+    let format = match cli.format.as_str() {
+        "json" => InputFormat::Json,
+        _ => InputFormat::Csv,
+    };
+
+    let table = data::parse::parse_stdin(format, cli.header).unwrap_or_else(|err| {
+        eprintln!("Error parsing input: {err}");
+        std::process::exit(1);
+    });
+
+    info!(
+        "Parsed table: {} rows, {} columns",
+        table.rows.len(),
+        table.headers.as_ref().map_or_else(
+            || table.rows.first().map_or(0, |r| r.len()),
+            |h| h.len()
+        )
+    );
+
+    app::run(table)
 }

@@ -11,13 +11,14 @@ use iced_style::Theme;
 use once_cell::sync::Lazy;
 use tracing::debug;
 
+use crate::data::Table;
 use crate::THEME;
 
 pub mod entries;
 pub mod state;
 pub mod style;
 
-pub fn run() -> iced::Result {
+pub fn run(table: Table) -> iced::Result {
     debug!("Starting Tabsel in debug mode");
 
     let default_font = THEME
@@ -50,7 +51,7 @@ pub fn run() -> iced::Result {
         default_text_size: Pixels::from(THEME.font_size),
         antialiasing: true,
         default_font,
-        flags: (),
+        flags: TabselFlags { table },
         fonts: vec![],
     })
 }
@@ -69,15 +70,22 @@ pub enum Message {
 
 static SCROLL_ID: Lazy<scrollable::Id> = Lazy::new(scrollable::Id::unique);
 
+pub struct TabselFlags {
+    pub table: Table,
+}
+
 impl Application for Tabsel {
     type Executor = iced::executor::Default;
     type Message = Message;
     type Theme = Theme;
-    type Flags = ();
+    type Flags = TabselFlags;
 
-    fn new(_flags: ()) -> (Self, Command<Self::Message>) {
+    fn new(flags: TabselFlags) -> (Self, Command<Self::Message>) {
         let tabsel = Tabsel {
-            state: state::State::default(),
+            state: state::State {
+                table: flags.table,
+                ..Default::default()
+            },
         };
 
         (

@@ -1,8 +1,10 @@
 .tabsel {
   --font-family: "monospace";
   font-size: 16px;
-  width: 600px;
-  height: 400px;
+  min-width: 400px;
+  max-width: 80%;
+  min-height: 250px;
+  max-height: 70%;
   background: #1e1e2e;
   color: #cdd6f4;
   border-color: #585b70;

@@ -63,8 +63,22 @@ impl TryFrom<Pair<'_, Rule>> for Theme {
                     theme.font_size = helpers::unwrap_attr_u16(pair)?;
                     theme.propagate_font_size();
                 }
-                Rule::window_height => theme.size.1 = helpers::unwrap_attr_32(pair)?,
-                Rule::window_width => theme.size.0 = helpers::unwrap_attr_32(pair)?,
+                Rule::window_height => {
+                    let val = helpers::unwrap_attr_32(pair)? as f32;
+                    let spec = crate::app::style::SizeSpec::px(val);
+                    theme.min_height = spec;
+                    theme.max_height = spec;
+                }
+                Rule::window_width => {
+                    let val = helpers::unwrap_attr_32(pair)? as f32;
+                    let spec = crate::app::style::SizeSpec::px(val);
+                    theme.min_width = spec;
+                    theme.max_width = spec;
+                }
+                Rule::min_width => theme.min_width = helpers::unwrap_size_spec(pair)?,
+                Rule::max_width => theme.max_width = helpers::unwrap_size_spec(pair)?,
+                Rule::min_height => theme.min_height = helpers::unwrap_size_spec(pair)?,
+                Rule::max_height => theme.max_height = helpers::unwrap_size_spec(pair)?,
                 Rule::background => {
                     theme.background = helpers::unwrap_hex_color(pair)?;
                     theme.propagate_background();

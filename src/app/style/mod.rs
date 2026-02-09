@@ -45,11 +45,59 @@ impl AsRef<Theme> for Theme {
     }
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum SizeUnit {
+    Px,
+    Percent,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct SizeSpec {
+    pub value: f32,
+    pub unit: SizeUnit,
+}
+
+impl SizeSpec {
+    pub fn px(value: f32) -> Self {
+        SizeSpec {
+            value,
+            unit: SizeUnit::Px,
+        }
+    }
+
+    pub fn percent(value: f32) -> Self {
+        SizeSpec {
+            value,
+            unit: SizeUnit::Percent,
+        }
+    }
+
+    /// Resolve to pixels given the corresponding screen dimension.
+    pub fn resolve(&self, screen_dim: f32) -> f32 {
+        match self.unit {
+            SizeUnit::Px => self.value,
+            SizeUnit::Percent => self.value / 100.0 * screen_dim,
+        }
+    }
+}
+
+impl Scale for SizeSpec {
+    fn scale(mut self, scale: f32) -> Self {
+        if self.unit == SizeUnit::Px {
+            self.value *= scale;
+        }
+        self
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Theme {
     // Layout
     pub exit_unfocused: bool,
-    pub size: (u32, u32),
+    pub min_width: SizeSpec,
+    pub max_width: SizeSpec,
+    pub min_height: SizeSpec,
+    pub max_height: SizeSpec,
     pub font: Option<String>,
     pub font_size: u16,
     pub padding: OnagrePadding,
@@ -68,8 +116,10 @@ pub struct Theme {
 impl Scale for Theme {
     fn scale(mut self, scale: f32) -> Self {
         self.app_container = self.app_container.scale(scale);
-        self.size.0 = (self.size.0 as f32 * scale) as u32;
-        self.size.1 = (self.size.1 as f32 * scale) as u32;
+        self.min_width = self.min_width.scale(scale);
+        self.max_width = self.max_width.scale(scale);
+        self.min_height = self.min_height.scale(scale);
+        self.max_height = self.max_height.scale(scale);
         self.padding = self.padding * scale;
         self.font_size = (self.font_size as f32 * scale) as u16;
         self
@@ -119,7 +169,10 @@ impl Default for Theme {
     fn default() -> Self {
         Self {
             exit_unfocused: false,
-            size: (450, 300),
+            min_width: SizeSpec::px(200.0),
+            max_width: SizeSpec::percent(80.0),
+            min_height: SizeSpec::px(150.0),
+            max_height: SizeSpec::percent(70.0),
             font: None,
             font_size: 18,
             background: OnagreColor::DEFAULT_BACKGROUND,

@@ -13,6 +13,10 @@ px = _{ "px"? }
 percent_value = ${ (floating_number | number) ~ percent  }
 percent = _{ "%"? }
 
+size_px = ${ number ~ "px" }
+size_percent = ${ (floating_number | number) ~ "%" }
+size_value = { size_percent | size_px }
+
 string = ${ DOUBLE_QUOTE ~ inner ~ DOUBLE_QUOTE  }
 inner = @{ char* }
 char = {
@@ -51,6 +55,10 @@ FONT_FAMILY   = _{ "--font-family"      ~ ":" }
 FONT_SIZE     = _{ "font-size"          ~ ":" }
 WINDOW_WIDTH  = _{ "width"              ~ ":" }
 WINDOW_HEIGHT = _{ "height"             ~ ":" }
+MIN_WIDTH     = _{ "min-width"          ~ ":" }
+MAX_WIDTH     = _{ "max-width"          ~ ":" }
+MIN_HEIGHT    = _{ "min-height"         ~ ":" }
+MAX_HEIGHT    = _{ "max-height"         ~ ":" }
 WIDTH         = _{ "--width"            ~ ":" }
 _WIDTH        = _{ "width"              ~ ":" }
 MARGIN        = _{ "margin"             ~ ":" }
@@ -85,6 +93,10 @@ height              = { HEIGHT           ~ length_value  ~ SEMICOLON ~ NEWLINE* 
 width               = { WIDTH            ~ length_value  ~ SEMICOLON ~ NEWLINE* }
 window_height       = { WINDOW_HEIGHT    ~ px_value      ~ SEMICOLON ~ NEWLINE* }
 window_width        = { WINDOW_WIDTH     ~ px_value      ~ SEMICOLON ~ NEWLINE* }
+min_width           = { MIN_WIDTH        ~ size_value     ~ SEMICOLON ~ NEWLINE* }
+max_width           = { MAX_WIDTH        ~ size_value     ~ SEMICOLON ~ NEWLINE* }
+min_height          = { MIN_HEIGHT       ~ size_value     ~ SEMICOLON ~ NEWLINE* }
+max_height          = { MAX_HEIGHT       ~ size_value     ~ SEMICOLON ~ NEWLINE* }
 background          = { BACKGROUND       ~ hex_color     ~ SEMICOLON ~ NEWLINE* }
 color               = { COLOR            ~ hex_color     ~ SEMICOLON ~ NEWLINE*}
 border_color        = { BORDER_COLOR     ~ hex_color     ~ SEMICOLON ~ NEWLINE* }
@@ -118,6 +130,7 @@ tabsel_style = {
     ~ DELIMITER_START
     ~ NEWLINE*
     ~ ( exit_unfocused | font_family | font_size | window_height | window_width
+        | min_width | max_width | min_height | max_height
         | background | color | border_color | border_width | border_radius
         | padding | padding_left | padding_top | padding_right | padding_bottom | container)*
     ~ DELIMITER_END

@@ -1,3 +1,4 @@
+use crate::app::style::{SizeSpec, SizeUnit};
 use crate::config::color::OnagreColor;
 use crate::config::error::ConfigError;
 use crate::config::Rule;
@@ -52,6 +53,28 @@ pub fn unwrap_hex_color(pair: Pair<'_, Rule>) -> Result<OnagreColor, ConfigError
     let color = pair.into_inner().last().unwrap().as_str();
 
     OnagreColor::from(color)
+}
+
+pub fn unwrap_size_spec(pair: Pair<'_, Rule>) -> Result<SizeSpec, ConfigError> {
+    let size_value = pair.into_inner().last().unwrap();
+    let inner = size_value.into_inner().next().unwrap();
+    match inner.as_rule() {
+        Rule::size_percent => {
+            let val = inner.into_inner().as_str().parse::<f32>()?;
+            Ok(SizeSpec {
+                value: val,
+                unit: SizeUnit::Percent,
+            })
+        }
+        Rule::size_px => {
+            let val = inner.into_inner().as_str().parse::<f32>()?;
+            Ok(SizeSpec {
+                value: val,
+                unit: SizeUnit::Px,
+            })
+        }
+        _ => unreachable!(),
+    }
 }
 
 pub fn unwrap_x(pair: Pair<'_, Rule>) -> Result<Horizontal, ConfigError> {

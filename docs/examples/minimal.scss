@@ -1,7 +1,9 @@
 .tabsel {
   font-size: 14px;
-  width: 500px;
-  height: 300px;
+  min-width: 300px;
+  max-width: 80%;
+  min-height: 200px;
+  max-height: 70%;
   background: #000000;
   color: #ffffff;
   padding: 4px;

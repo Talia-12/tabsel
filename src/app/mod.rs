@@ -28,6 +28,7 @@ pub fn run(
     available_modes: Vec<SelectionMode>,
     filter_enabled: bool,
     output_format: OutputFormat,
+    window_size: (f32, f32),
 ) -> iced::Result {
     debug!("Starting Tabsel in debug mode");
 
@@ -42,8 +43,8 @@ pub fn run(
         window: window::Settings {
             transparent: true,
             size: Size {
-                width: THEME.size.0 as f32,
-                height: THEME.size.1 as f32,
+                width: window_size.0,
+                height: window_size.1,
             },
             decorations: false,
             resizable: false,

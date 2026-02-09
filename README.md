@@ -117,10 +117,17 @@ See [docs/examples/](docs/examples/) for example themes.
 
 ```scss
 .tabsel {
-  // Window properties
+  // Window sizing (adaptive: window fits content within bounds)
+  // Use px for pixels, % for screen percentage
+  min-width: 300px;
+  max-width: 80%;
+  min-height: 200px;
+  max-height: 70%;
+  // Or use width/height for a fixed size (sets both min and max):
+  // width: 600px;
+  // height: 400px;
+
   font-size: 16px;
-  width: 600px;
-  height: 400px;
   background: #1e1e2e;
   color: #cdd6f4;
   border-color: #585b70;

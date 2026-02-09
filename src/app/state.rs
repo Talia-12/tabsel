@@ -7,11 +7,14 @@ pub struct State {
     pub active_mode: SelectionMode,
     pub available_modes: Vec<SelectionMode>,
     pub table: Table,
+    pub filter_enabled: bool,
+    pub filter_text: String,
+    pub filtered_indices: Vec<usize>,
 }
 
 impl State {
     pub fn visible_rows(&self) -> usize {
-        self.table.rows.len()
+        self.filtered_indices.len()
     }
 
     pub fn num_columns(&self) -> usize {
@@ -22,11 +25,16 @@ impl State {
             .unwrap_or_else(|| self.table.rows.first().map_or(0, |r| r.len()))
     }
 
-    pub fn cell_is_selected(&self, row: usize, col: usize) -> bool {
+    /// Returns the actual table row index for a given filtered position.
+    pub fn actual_row_index(&self, filtered_pos: usize) -> usize {
+        self.filtered_indices[filtered_pos]
+    }
+
+    pub fn cell_is_selected(&self, filtered_pos: usize, col: usize) -> bool {
         match self.active_mode {
-            SelectionMode::Row => row == self.selected_row,
+            SelectionMode::Row => filtered_pos == self.selected_row,
             SelectionMode::Column => col == self.selected_col,
-            SelectionMode::Cell => row == self.selected_row && col == self.selected_col,
+            SelectionMode::Cell => filtered_pos == self.selected_row && col == self.selected_col,
         }
     }
 
@@ -49,6 +57,29 @@ impl State {
             self.selected_col = num_cols - 1;
         }
     }
+
+    pub fn update_filtered_indices(&mut self) {
+        if self.filter_text.is_empty() {
+            self.filtered_indices = (0..self.table.rows.len()).collect();
+        } else {
+            let query = self.filter_text.to_lowercase();
+            self.filtered_indices = self
+                .table
+                .rows
+                .iter()
+                .enumerate()
+                .filter(|(_, row)| {
+                    row.iter()
+                        .any(|cell| cell.to_lowercase().contains(&query))
+                })
+                .map(|(idx, _)| idx)
+                .collect();
+        }
+    }
+
+    pub fn init_filtered_indices(&mut self) {
+        self.filtered_indices = (0..self.table.rows.len()).collect();
+    }
 }
 
 impl Default for State {
@@ -62,6 +93,9 @@ impl Default for State {
                 headers: None,
                 rows: Vec::new(),
             },
+            filter_enabled: true,
+            filter_text: String::new(),
+            filtered_indices: Vec::new(),
         }
     }
 }

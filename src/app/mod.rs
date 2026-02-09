@@ -1,6 +1,8 @@
 use std::process::exit;
 
-use iced::widget::{column, container, scrollable, text, Button, Column, Container, Row};
+use iced::widget::{
+    column, container, scrollable, text, text_input, Button, Column, Container, Row, TextInput,
+};
 use iced::{event, window, Alignment, Application, Command, Element, Length, Settings, Subscription};
 use iced_core::keyboard::key::Named;
 use iced_core::keyboard::{Key, Modifiers};
@@ -19,7 +21,7 @@ pub mod entries;
 pub mod state;
 pub mod style;
 
-pub fn run(table: Table, available_modes: Vec<SelectionMode>) -> iced::Result {
+pub fn run(table: Table, available_modes: Vec<SelectionMode>, filter_enabled: bool) -> iced::Result {
     debug!("Starting Tabsel in debug mode");
 
     let default_font = THEME
@@ -55,6 +57,7 @@ pub fn run(table: Table, available_modes: Vec<SelectionMode>) -> iced::Result {
         flags: TabselFlags {
             table,
             available_modes,
+            filter_enabled,
         },
         fonts: vec![],
     })
@@ -69,15 +72,18 @@ pub struct Tabsel {
 pub enum Message {
     Loading,
     Click(usize),
+    InputChanged(String),
     KeyboardEvent(Key, Modifiers),
     Unfocused,
 }
 
 static SCROLL_ID: Lazy<scrollable::Id> = Lazy::new(scrollable::Id::unique);
+static INPUT_ID: Lazy<text_input::Id> = Lazy::new(text_input::Id::unique);
 
 pub struct TabselFlags {
     pub table: Table,
     pub available_modes: Vec<SelectionMode>,
+    pub filter_enabled: bool,
 }
 
 impl Application for Tabsel {
@@ -88,14 +94,16 @@ impl Application for Tabsel {
 
     fn new(flags: TabselFlags) -> (Self, Command<Self::Message>) {
         let active_mode = flags.available_modes[0];
-        let tabsel = Tabsel {
-            state: state::State {
-                table: flags.table,
-                active_mode,
-                available_modes: flags.available_modes,
-                ..Default::default()
-            },
+        let mut state = state::State {
+            table: flags.table,
+            active_mode,
+            available_modes: flags.available_modes,
+            filter_enabled: flags.filter_enabled,
+            ..Default::default()
         };
+        state.init_filtered_indices();
+
+        let tabsel = Tabsel { state };
 
         (
             tabsel,
@@ -109,10 +117,22 @@ impl Application for Tabsel {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            Message::Loading => Command::none(),
+            Message::Loading => {
+                if self.state.filter_enabled {
+                    text_input::focus(INPUT_ID.clone())
+                } else {
+                    Command::none()
+                }
+            }
+            Message::InputChanged(value) => {
+                self.state.filter_text = value;
+                self.state.update_filtered_indices();
+                self.state.selected_row = 0;
+                self.snap()
+            }
             Message::KeyboardEvent(key, modifiers) => self.handle_input(key, modifiers),
-            Message::Click(row_idx) => {
-                self.state.selected_row = row_idx;
+            Message::Click(filtered_pos) => {
+                self.state.selected_row = filtered_pos;
                 self.on_confirm()
             }
             Message::Unfocused => {
@@ -127,6 +147,29 @@ impl Application for Tabsel {
 
     fn view(&self) -> Element<'_, Self::Message> {
         let num_cols = self.state.num_columns();
+
+        let mut app_column: Vec<Element<'_, Self::Message>> = Vec::new();
+
+        // Filter bar (if enabled)
+        if self.state.filter_enabled {
+            let search_style = THEME.search();
+            let input_style = THEME.search_input();
+
+            let input: TextInput<'_, Message> =
+                text_input("Filter...", &self.state.filter_text)
+                    .id(INPUT_ID.clone())
+                    .on_input(Message::InputChanged)
+                    .size(input_style.font_size)
+                    .width(input_style.width)
+                    .style(iced::theme::TextInput::Custom(Box::new(input_style)));
+
+            let search_container = Container::new(input)
+                .style(iced::theme::Container::Custom(Box::new(search_style)))
+                .padding(search_style.padding.to_iced_padding())
+                .width(search_style.width);
+
+            app_column.push(search_container.into());
+        }
 
         // Build rows
         let mut rows_column: Vec<Element<'_, Self::Message>> = Vec::new();
@@ -157,11 +200,12 @@ impl Application for Tabsel {
             rows_column.push(header_row.into());
         }
 
-        // Data rows
-        for (idx, row_data) in self.state.table.rows.iter().enumerate() {
+        // Data rows (filtered)
+        for (filtered_pos, &actual_idx) in self.state.filtered_indices.iter().enumerate() {
+            let row_data = &self.state.table.rows[actual_idx];
             let cells: Vec<Element<'_, Self::Message>> = (0..num_cols)
                 .map(|col| {
-                    let selected = self.state.cell_is_selected(idx, col);
+                    let selected = self.state.cell_is_selected(filtered_pos, col);
                     let cell_style = if selected {
                         &THEME.app_container.rows.row_selected
                     } else {
@@ -180,7 +224,8 @@ impl Application for Tabsel {
                 .collect();
 
             // Row container uses selected style if any cell in the row is selected
-            let row_has_selection = (0..num_cols).any(|c| self.state.cell_is_selected(idx, c));
+            let row_has_selection =
+                (0..num_cols).any(|c| self.state.cell_is_selected(filtered_pos, c));
             let row_style = if row_has_selection {
                 &THEME.app_container.rows.row_selected
             } else {
@@ -194,7 +239,7 @@ impl Application for Tabsel {
 
             let button = Button::new(row_content)
                 .style(iced::theme::Button::Custom(Box::new(&ButtonStyle)))
-                .on_press(Message::Click(idx));
+                .on_press(Message::Click(filtered_pos));
 
             let row_container = Container::new(button)
                 .style(iced::theme::Container::Custom(Box::new(row_style)))
@@ -219,10 +264,10 @@ impl Application for Tabsel {
             .width(THEME.app_container.rows.width)
             .height(THEME.app_container.rows.height);
 
+        app_column.push(scrollable.into());
+
         let app_container = Container::new(
-            Column::new()
-                .push(scrollable)
-                .align_items(Alignment::Start),
+            Column::with_children(app_column).align_items(Alignment::Start),
         )
         .padding(THEME.app().padding.to_iced_padding())
         .style(iced::theme::Container::Custom(Box::new(THEME.app())))

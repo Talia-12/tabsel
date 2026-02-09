@@ -63,6 +63,13 @@ struct Cli {
         help = "Selection mode(s): row, column, cell. Repeat for multiple (e.g. --mode row --mode cell)"
     )]
     mode: Vec<String>,
+
+    #[arg(
+        long = "no-filter",
+        default_value = "false",
+        help = "Disable the filter bar"
+    )]
+    no_filter: bool,
 }
 
 pub fn main() -> iced::Result {
@@ -123,5 +130,5 @@ pub fn main() -> iced::Result {
         })
         .collect();
 
-    app::run(table, available_modes)
+    app::run(table, available_modes, !cli.no_filter)
 }

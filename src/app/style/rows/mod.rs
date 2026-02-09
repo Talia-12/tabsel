@@ -100,3 +100,77 @@ impl RowStyles {
     }
 }
 impl Eq for RowStyles {}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct HeaderRowStyle {
+    // Layout
+    pub padding: OnagrePadding,
+    pub width: Length,
+    pub height: Length,
+    pub spacing: u16,
+    pub align_x: Horizontal,
+    pub align_y: Vertical,
+
+    // Style
+    pub background: OnagreColor,
+    pub border_radius: f32,
+    pub border_width: f32,
+    pub color: OnagreColor,
+    pub border_color: OnagreColor,
+    pub font_size: u16,
+    pub separator_color: OnagreColor,
+    pub separator_width: f32,
+}
+
+impl Scale for HeaderRowStyle {
+    fn scale(mut self, scale: f32) -> Self {
+        self.height = self.height.scale(scale);
+        self.width = self.width.scale(scale);
+        self.spacing = self.spacing.scale(scale);
+        self.border_width = self.border_width.scale(scale);
+        self.font_size = self.font_size.scale(scale);
+        self.separator_width = self.separator_width.scale(scale);
+        self.padding = self.padding.scale(scale);
+        self
+    }
+}
+
+impl StyleSheet for &HeaderRowStyle {
+    type Style = iced::Theme;
+
+    fn appearance(&self, _: &Self::Style) -> Appearance {
+        Appearance {
+            text_color: Some(self.color.into()),
+            background: Some(Background::Color(self.background.into())),
+            border: Border {
+                color: self.border_color.into(),
+                width: self.border_width,
+                radius: Radius::from(self.border_radius),
+            },
+            shadow: Default::default(),
+        }
+    }
+}
+
+impl Default for HeaderRowStyle {
+    fn default() -> Self {
+        HeaderRowStyle {
+            width: Length::Fill,
+            height: Length::Shrink,
+            background: OnagreColor::DEFAULT_BACKGROUND,
+            color: OnagreColor::WHITE,
+            border_radius: 0.0,
+            border_width: 0.0,
+            border_color: OnagreColor::TRANSPARENT,
+            padding: OnagrePadding::from(5),
+            align_x: Horizontal::Left,
+            align_y: Vertical::Center,
+            spacing: 2,
+            font_size: 14,
+            separator_color: OnagreColor::DEFAULT_BORDER,
+            separator_width: 1.0,
+        }
+    }
+}
+
+impl Eq for HeaderRowStyle {}

@@ -1,7 +1,8 @@
 use std::process::exit;
 
 use iced::widget::{
-    column, container, scrollable, text, text_input, Button, Column, Container, Row, TextInput,
+    column, container, horizontal_rule, scrollable, text, text_input, Button, Column, Container,
+    Row, TextInput,
 };
 use iced::{event, window, Alignment, Application, Command, Element, Length, Settings, Subscription};
 use iced_core::keyboard::key::Named;
@@ -181,32 +182,38 @@ impl Application for Tabsel {
         }
 
         // Build rows
+        let column_spacing = THEME.app_container.rows.column_spacing;
         let mut rows_column: Vec<Element<'_, Self::Message>> = Vec::new();
 
         // Header row (if present)
         if let Some(headers) = &self.state.table.headers {
-            let header_style = &THEME.app_container.rows.row_selected;
+            let header_style = &THEME.app_container.rows.header;
             let header_cells: Vec<Element<'_, Self::Message>> = headers
                 .iter()
                 .map(|h| {
                     Container::new(
-                        text(h.as_str()).size(header_style.title.font_size),
+                        text(h.as_str()).size(header_style.font_size),
                     )
-                    .style(iced::theme::Container::Custom(Box::new(
-                        &header_style.title,
-                    )))
-                    .padding(header_style.title.padding.to_iced_padding())
                     .width(Length::FillPortion(1))
                     .into()
                 })
                 .collect();
 
-            let header_row = Container::new(Row::with_children(header_cells).width(Length::Fill))
-                .style(iced::theme::Container::Custom(Box::new(header_style)))
-                .padding(header_style.padding.to_iced_padding())
-                .width(header_style.width);
+            let header_row = Container::new(
+                Row::with_children(header_cells)
+                    .width(Length::Fill)
+                    .spacing(column_spacing),
+            )
+            .style(iced::theme::Container::Custom(Box::new(header_style)))
+            .padding(header_style.padding.to_iced_padding())
+            .width(header_style.width);
 
             rows_column.push(header_row.into());
+
+            // Separator line between header and data
+            if header_style.separator_width > 0.0 {
+                rows_column.push(horizontal_rule(header_style.separator_width as u16).into());
+            }
         }
 
         // Data rows (filtered)
@@ -243,7 +250,7 @@ impl Application for Tabsel {
 
             let row_content = Row::with_children(cells)
                 .width(Length::Fill)
-                .spacing(row_style.spacing)
+                .spacing(column_spacing)
                 .align_items(Alignment::Start);
 
             let button = Button::new(row_content)
@@ -399,11 +406,11 @@ impl Tabsel {
     }
 
     fn snap(&self) -> Command<Message> {
-        let total = self.state.visible_rows() as f32;
-        if total == 0.0 {
+        let total = self.state.visible_rows();
+        if total <= 1 {
             return scrollable::snap_to(SCROLL_ID.clone(), RelativeOffset::START);
         }
-        let offset = self.state.selected_row as f32 / total;
+        let offset = self.state.selected_row as f32 / (total - 1) as f32;
         scrollable::snap_to(
             SCROLL_ID.clone(),
             RelativeOffset {

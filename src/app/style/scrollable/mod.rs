@@ -1,4 +1,4 @@
-use crate::app::style::rows::RowStyles;
+use crate::app::style::rows::{HeaderRowStyle, RowStyles};
 use crate::app::style::Scale;
 use crate::config::color::OnagreColor;
 use crate::config::padding::OnagrePadding;
@@ -23,7 +23,10 @@ pub struct RowContainerStyle {
     pub width: Length,
     pub height: Length,
 
-    // Iced Scrollable
+    pub column_spacing: u16,
+
+    // Children
+    pub header: HeaderRowStyle,
     pub row: RowStyles,
     pub row_selected: RowStyles,
 }
@@ -34,6 +37,8 @@ impl Scale for RowContainerStyle {
         self.border_width = self.border_width.scale(scale);
         self.width = self.width.scale(scale);
         self.height = self.height.scale(scale);
+        self.column_spacing = self.column_spacing.scale(scale);
+        self.header = self.header.scale(scale);
         self.row = self.row.scale(scale);
         self.row_selected = self.row_selected.scale(scale);
         self
@@ -75,6 +80,8 @@ impl Default for RowContainerStyle {
             },
             width: Length::Fill,
             height: Length::FillPortion(8),
+            column_spacing: 0,
+            header: HeaderRowStyle::default(),
             row: RowStyles::default(),
             row_selected: RowStyles::default_selected(),
         }

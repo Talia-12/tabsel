@@ -59,6 +59,8 @@ impl Inherit for AppContainerStyles {
 
 impl Inherit for RowContainerStyle {
     fn propagate_background(&mut self) {
+        self.header.background = self.background;
+
         self.row.background = self.background;
         self.row.propagate_background();
 
@@ -67,12 +69,16 @@ impl Inherit for RowContainerStyle {
     }
 
     fn propagate_color(&mut self) {
+        self.header.color = self.color;
+
         self.row.color = self.color;
         self.row.propagate_color();
 
         self.row_selected.color = self.color;
         self.row_selected.propagate_color();
     }
+
+    fn propagate_font_size(&mut self) {}
 }
 
 impl Inherit for RowStyles {

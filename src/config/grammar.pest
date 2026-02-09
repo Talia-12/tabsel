@@ -67,6 +67,9 @@ PADDING_RIGHT = _{ "padding-right"      ~ ":" }
 PADDING_BOTTOM= _{ "padding-bottom"     ~ ":" }
 PADDING_TOP   = _{ "padding-top"        ~ ":" }
 SPACING       = _{ "--spacing"          ~ ":" }
+COLUMN_SPACING= _{ "--column-spacing"  ~ ":" }
+SEPARATOR_COLOR=_{ "--separator-color" ~ ":" }
+SEPARATOR_WIDTH=_{ "--separator-width" ~ ":" }
 ALIGN_ITEMS   = _{ "--align-items"      ~ ":" }
 ALIGN_X       = _{ "--align-x"          ~ ":" }
 ALIGN_Y       = _{ "--align-y"          ~ ":" }
@@ -99,6 +102,9 @@ align_y             = { ALIGN_Y          ~ align_y_value ~ SEMICOLON ~ NEWLINE* 
 placeholder_color   = { PLACEHOLDER      ~ hex_color     ~ SEMICOLON ~ NEWLINE* }
 selection_color     = { SELECTION        ~ hex_color     ~ SEMICOLON ~ NEWLINE* }
 text_width          = { TEXT_WIDTH       ~ length_value  ~ SEMICOLON ~ NEWLINE* }
+column_spacing      = { COLUMN_SPACING  ~ px_value      ~ SEMICOLON ~ NEWLINE* }
+separator_color     = { SEPARATOR_COLOR ~ hex_color     ~ SEMICOLON ~ NEWLINE* }
+separator_width     = { SEPARATOR_WIDTH ~ px_value      ~ SEMICOLON ~ NEWLINE* }
 scroller_width      = { _WIDTH           ~ px_value      ~ SEMICOLON ~ NEWLINE* }
 scrollbar_width     = { _WIDTH           ~ px_value      ~ SEMICOLON ~ NEWLINE* }
 scrollbar_margin    = { MARGIN           ~ px_value      ~ SEMICOLON ~ NEWLINE* }
@@ -106,8 +112,8 @@ scrollbar_margin    = { MARGIN           ~ px_value      ~ SEMICOLON ~ NEWLINE* 
 
 
 // Selectors
-onagre_style = {
-    ".onagre"
+tabsel_style = {
+    ".tabsel"
     ~ NEWLINE*
     ~ DELIMITER_START
     ~ NEWLINE*
@@ -164,8 +170,8 @@ rows = {
     ~ NEWLINE*
     ~ (background | color | border_color | border_radius | border_width | padding
     | padding_left | padding_right | padding_bottom | padding_top
-    | width | height
-    | selected_row | default_row)*
+    | width | height | column_spacing
+    | selected_row | default_row | header_row)*
     ~ DELIMITER_END
     ~ NEWLINE*
 }
@@ -194,6 +200,20 @@ default_row = {
     | align_y | align_x
     | spacing
     | description_row | title_row )*
+    ~ DELIMITER_END
+    ~ NEWLINE*
+}
+header_row = {
+    ".header"
+    ~ NEWLINE*
+    ~ DELIMITER_START
+    ~ NEWLINE*
+    ~ (background | color | border_color | border_radius | border_width
+    | padding | padding_left | padding_right | padding_bottom | padding_top
+    | width | height
+    | align_y | align_x
+    | spacing | font_size
+    | separator_color | separator_width)*
     ~ DELIMITER_END
     ~ NEWLINE*
 }
@@ -241,4 +261,4 @@ scroller =  {
     ~ NEWLINE*
 }
 
-stylesheet = { SOI ~ NEWLINE* ~ onagre_style ~ NEWLINE* ~ EOI }
+stylesheet = { SOI ~ NEWLINE* ~ tabsel_style ~ NEWLINE* ~ EOI }

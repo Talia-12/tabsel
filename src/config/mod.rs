@@ -14,7 +14,7 @@ use std::path::Path;
 
 use crate::app::style::app::AppContainerStyles;
 use crate::app::style::rows::generic::GenericContainerStyle;
-use crate::app::style::rows::RowStyles;
+use crate::app::style::rows::{HeaderRowStyle, RowStyles};
 use crate::app::style::scrollable::scroller::ScrollerStyles;
 use crate::app::style::scrollable::RowContainerStyle;
 use crate::app::style::search::input::SearchInputStyles;
@@ -36,7 +36,7 @@ pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<Theme, ConfigError> {
 
     if let Some(pair) = pairs.into_inner().next() {
         match pair.as_rule() {
-            Rule::onagre_style => {
+            Rule::tabsel_style => {
                 return Theme::try_from(pair);
             }
             _ => unreachable!(),
@@ -274,8 +274,10 @@ impl ApplyConfig for RowContainerStyle {
                 Rule::padding_left => self.padding.left = helpers::unwrap_attr_u16(pair)?,
                 Rule::width => self.width = helpers::unwrap_length(pair)?,
                 Rule::height => self.height = helpers::unwrap_length(pair)?,
+                Rule::column_spacing => self.column_spacing = helpers::unwrap_attr_u16(pair)?,
 
                 // Children
+                Rule::header_row => self.header.apply(pair)?,
                 Rule::default_row => self.row.apply(pair)?,
                 Rule::selected_row => self.row_selected.apply(pair)?,
                 _ => unreachable!(),
@@ -323,6 +325,41 @@ impl ApplyConfig for RowStyles {
                     self.description.apply(pair)?
                 }
                 Rule::title_row => self.title.apply(pair)?,
+                _ => unreachable!(),
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl ApplyConfig for HeaderRowStyle {
+    fn apply(&mut self, pair: Pair<'_, Rule>) -> Result<(), ConfigError> {
+        for pair in pair.into_inner() {
+            match pair.as_rule() {
+                // Style
+                Rule::background => self.background = helpers::unwrap_hex_color(pair)?,
+                Rule::color => self.color = helpers::unwrap_hex_color(pair)?,
+                Rule::border_color => self.border_color = helpers::unwrap_hex_color(pair)?,
+                Rule::border_radius => self.border_radius = helpers::unwrap_attr_f32(pair)?,
+                Rule::border_width => self.border_width = helpers::unwrap_attr_f32(pair)?,
+                Rule::font_size => self.font_size = helpers::unwrap_attr_u16(pair)?,
+                Rule::separator_color => self.separator_color = helpers::unwrap_hex_color(pair)?,
+                Rule::separator_width => self.separator_width = helpers::unwrap_attr_f32(pair)?,
+
+                // Layout
+                Rule::padding => {
+                    self.padding = OnagrePadding::from(helpers::unwrap_attr_u16(pair)?)
+                }
+                Rule::padding_top => self.padding.top = helpers::unwrap_attr_u16(pair)?,
+                Rule::padding_bottom => self.padding.bottom = helpers::unwrap_attr_u16(pair)?,
+                Rule::padding_right => self.padding.right = helpers::unwrap_attr_u16(pair)?,
+                Rule::padding_left => self.padding.left = helpers::unwrap_attr_u16(pair)?,
+                Rule::spacing => self.spacing = helpers::unwrap_attr_u16(pair)?,
+                Rule::width => self.width = helpers::unwrap_length(pair)?,
+                Rule::height => self.height = helpers::unwrap_length(pair)?,
+                Rule::align_x => self.align_x = helpers::unwrap_x(pair)?,
+                Rule::align_y => self.align_y = helpers::unwrap_y(pair)?,
                 _ => unreachable!(),
             }
         }

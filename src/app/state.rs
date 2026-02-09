@@ -1,4 +1,4 @@
-use crate::data::{SelectionMode, Table};
+use crate::data::{OutputFormat, SelectionMode, Table};
 
 #[derive(Debug)]
 pub struct State {
@@ -10,6 +10,7 @@ pub struct State {
     pub filter_enabled: bool,
     pub filter_text: String,
     pub filtered_indices: Vec<usize>,
+    pub output_format: OutputFormat,
 }
 
 impl State {
@@ -96,6 +97,7 @@ impl Default for State {
             filter_enabled: true,
             filter_text: String::new(),
             filtered_indices: Vec::new(),
+            output_format: OutputFormat::Plain,
         }
     }
 }

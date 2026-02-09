@@ -9,7 +9,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use app::style::Theme;
-use data::{InputFormat, SelectionMode};
+use data::{InputFormat, OutputFormat, SelectionMode};
 
 pub mod app;
 pub mod config;
@@ -70,6 +70,14 @@ struct Cli {
         help = "Disable the filter bar"
     )]
     no_filter: bool,
+
+    #[arg(
+        long = "output-format",
+        short = 'o',
+        default_value = "plain",
+        help = "Output format: plain, json, or csv"
+    )]
+    output_format: String,
 }
 
 pub fn main() -> iced::Result {
@@ -77,7 +85,7 @@ pub fn main() -> iced::Result {
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "tabsel=info".into()),
         ))
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
         .init();
 
     info!("Starting tabsel");
@@ -130,5 +138,15 @@ pub fn main() -> iced::Result {
         })
         .collect();
 
-    app::run(table, available_modes, !cli.no_filter)
+    let output_format = match cli.output_format.as_str() {
+        "json" => OutputFormat::Json,
+        "csv" => OutputFormat::Csv,
+        "plain" => OutputFormat::Plain,
+        other => {
+            eprintln!("Unknown output format: {other}. Valid formats: plain, json, csv");
+            std::process::exit(1);
+        }
+    };
+
+    app::run(table, available_modes, !cli.no_filter, output_format)
 }

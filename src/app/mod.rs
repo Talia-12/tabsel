@@ -14,14 +14,20 @@ use once_cell::sync::Lazy;
 use tracing::debug;
 
 use crate::app::style::rows::button::ButtonStyle;
-use crate::data::{SelectionMode, Table};
+use crate::data::output;
+use crate::data::{OutputFormat, SelectionMode, Table};
 use crate::THEME;
 
 pub mod entries;
 pub mod state;
 pub mod style;
 
-pub fn run(table: Table, available_modes: Vec<SelectionMode>, filter_enabled: bool) -> iced::Result {
+pub fn run(
+    table: Table,
+    available_modes: Vec<SelectionMode>,
+    filter_enabled: bool,
+    output_format: OutputFormat,
+) -> iced::Result {
     debug!("Starting Tabsel in debug mode");
 
     let default_font = THEME
@@ -58,6 +64,7 @@ pub fn run(table: Table, available_modes: Vec<SelectionMode>, filter_enabled: bo
             table,
             available_modes,
             filter_enabled,
+            output_format,
         },
         fonts: vec![],
     })
@@ -84,6 +91,7 @@ pub struct TabselFlags {
     pub table: Table,
     pub available_modes: Vec<SelectionMode>,
     pub filter_enabled: bool,
+    pub output_format: OutputFormat,
 }
 
 impl Application for Tabsel {
@@ -99,6 +107,7 @@ impl Application for Tabsel {
             active_mode,
             available_modes: flags.available_modes,
             filter_enabled: flags.filter_enabled,
+            output_format: flags.output_format,
             ..Default::default()
         };
         state.init_filtered_indices();
@@ -325,7 +334,7 @@ impl Tabsel {
             }
             Key::Named(Named::Enter) => return self.on_confirm(),
             Key::Named(Named::Escape) => {
-                exit(0);
+                exit(1);
             }
             _ => {}
         };
@@ -334,7 +343,28 @@ impl Tabsel {
     }
 
     fn on_confirm(&self) -> Command<Message> {
-        // Stub: will output selection in Step 7
+        let fmt = self.state.output_format;
+        let table = &self.state.table;
+
+        if self.state.visible_rows() == 0 {
+            exit(1);
+        }
+
+        let result = match self.state.active_mode {
+            SelectionMode::Row => {
+                let actual_idx = self.state.actual_row_index(self.state.selected_row);
+                output::format_row(table, fmt, actual_idx)
+            }
+            SelectionMode::Column => {
+                output::format_column(table, fmt, self.state.selected_col)
+            }
+            SelectionMode::Cell => {
+                let actual_idx = self.state.actual_row_index(self.state.selected_row);
+                output::format_cell(table, fmt, actual_idx, self.state.selected_col)
+            }
+        };
+
+        println!("{result}");
         exit(0);
     }
 

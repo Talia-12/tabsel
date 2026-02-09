@@ -81,6 +81,12 @@ struct Cli {
 }
 
 pub fn main() -> iced::Result {
+    // Reset SIGPIPE to default so writing to a broken pipe exits cleanly
+    // instead of panicking.
+    #[cfg(unix)]
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "tabsel=info".into()),
@@ -114,6 +120,11 @@ pub fn main() -> iced::Result {
         eprintln!("Error parsing input: {err}");
         std::process::exit(1);
     });
+
+    if table.rows.is_empty() {
+        eprintln!("No data rows to display");
+        std::process::exit(1);
+    }
 
     info!(
         "Parsed table: {} rows, {} columns",

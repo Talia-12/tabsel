@@ -3144,6 +3144,7 @@ dependencies = [
  "iced_core",
  "iced_runtime",
  "iced_style",
+ "libc",
  "once_cell",
  "pest",
  "pest_derive",

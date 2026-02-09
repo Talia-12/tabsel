@@ -1,204 +1,221 @@
-<p align="center">
-  <img
-    width="600"
-    src="./docs/onagre.png"
-    alt="Onagre logo"
-  />
-</p>
+# tabsel
 
+A dmenu-like table selector for Wayland. Reads tabular data from stdin (CSV or JSON), displays it as an interactive table, and outputs the selection to stdout.
 
-<p align="center">
-  <a href="https://github.com/onagre-launcher/onagre/actions/workflows/CD.yml"><img
-      src="https://github.com/onagre-launcher/onagre/actions/workflows/CD.yml/badge.svg"
-      alt="GitHub Actions workflow status"
-  /></a>
-    <img
-      src="https://github.com/onagre-launcher/onagre/actions/workflows/Release.yaml/badge.svg"
-      alt="GitHub Actions workflow status"
-  /></a>
-  <br />
-  <a href="https://conventionalcommits.org"
-    ><img
-      src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg"
-      alt="Conventional commits"
-  /></a>
-  <a href="https://github.com/onagre-launcher/onagre/actions/blob/main/LICENSE"
-    ><img
-      src="https://img.shields.io/github/license/onagre-launcher/onagre"
-      alt="Repository license"
-  /></a>
-</p>
-
-<p align="center">
-  <a href="https://docs.onagre.dev">Website</a>
-  ·
-  <a href="https://docs.onagre.dev/get-started.html">Get Started</a>
-</p>
-
-<p align="center">
-A general purpose application launcher for X and wayland  inspired <br>
-by rofi/wofi and alfred,<br>
-build with <a href ="https://github.com/hecrj/iced/">iced</a>
-and <a href ="https://github.com/pop-os/launcher">pop-launcher</a>.
-</p>
-
-
----
-
-https://user-images.githubusercontent.com/24563836/170211716-7822ec0b-94d1-414e-a131-cf91af540ca4.mp4
-
-
-Onagre is build on top of [pop-launcher](https://github.com/pop-os/launcher) which makes it very versatile.
-The pop-launcher plugin system allow you to extend Onagre with plugins from the community or even write your own
-using any programming language.
-
-## Features
-
-- Works on x11 and wayland.
-- Fully customizable theme.
-- Default plugins: calc, files, pop_shell, recent, terminal, desktop entries, find, pulse, scripts, web.
-- Can be extended with [pop-launcher](https://github.com/pop-os/launcher) plugins.
+Built with [iced](https://github.com/hecrj/iced/).
 
 ## Install
 
-**Dependencies:**
-- ⚠️ [pop-launcher](https://github.com/pop-os/launcher) > 1.2.4
-    **Rust 1.8 introduced a breaking change in the way sorting is handled, onagre will unexpectedly crash with older version of pop launcher.**
-    **Currently, for arch users, the only way to get the latest version of pop-launcher is to build it from source.**
-- [Qalculate](http://qalculate.github.io/) (optional)
-
-[![Packaging status](https://repology.org/badge/vertical-allrepos/onagre.svg)](https://repology.org/project/onagre/versions)
-
-If there is no distro package available for Onagre in your preferred manager,
-you need Rust and [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) to build it.
-
-**From source:**
+### From source
 
 ```bash
-git clone https://github.com/oknozor/onagre.git
-cd onagre
+git clone https://github.com/Talia-12/tabsel.git
+cd tabsel
 cargo build --release --locked
-sudo mv target/release/onagre /usr/bin/onagre
+sudo cp target/release/tabsel /usr/bin/tabsel
 ```
 
-**Latest release with cargo:**
+### Nix
 
 ```bash
-cargo install --git https://github.com/onagre-launcher/onagre --tag 1.0.0
+nix run github:Talia-12/tabsel
 ```
 
-**Latest upstream with cargo:**
-
-```bash
-cargo install --git https://github.com/onagre-launcher/onagre
-```
-
+Or add to your flake inputs and use the home-manager module (see below).
 
 ## Usage
 
-**1. Key bindings:**
+Pipe tabular data into tabsel:
 
+```bash
+# CSV with headers (default)
+echo -e "name,age,city\nAlice,30,NYC\nBob,25,LA\nCarol,35,Chicago" | tabsel
 
-| Key             | Action                       |
-|:----------------|:-----------------------------|
-| `Arrow up/down` | Change selection             |
-| `Tab`           | Autocomplete (in files mode) |
-| `Esc`           | Quit without launching       |
-| `Enter`         | Launch selection             |
+# JSON array of objects
+echo '[{"name":"Alice","age":30},{"name":"Bob","age":25}]' | tabsel --format json
 
-**2. Plugins:**
+# CSV without headers
+echo -e "Alice,30\nBob,25" | tabsel --header false
+```
 
-To use a plugin simply match its regex when typing your query.
+### Key bindings
 
-For instance the `file` plugin will match `^(/|~).*`, typing `~/` would enable the plugin and start the file navigation.
+| Key              | Action                                  |
+|:-----------------|:----------------------------------------|
+| Arrow Up/Down    | Move row selection                      |
+| Arrow Left/Right | Move column selection (column/cell mode)|
+| Enter            | Confirm selection, output to stdout     |
+| Escape           | Cancel (exit code 1)                    |
+| Shift+Tab        | Cycle selection mode                    |
+| Type text        | Filter rows (when filter bar is enabled)|
 
-Plugin with no prefix are enabled by default, there entry will be mixed in the search results.
+### CLI reference
 
-**Default plugins:**
+```
+tabsel [OPTIONS]
 
-| Mode        | Description                                                   | Prefix           | Configuration                                            |
-|:------------|:--------------------------------------------------------------|:-----------------|:---------------------------------------------------------|
-| History     | Display the most used desktop entries on start                |                  |                                                          |
-| PopLauncher | Search for desktop entries                                    |                  |                                                          |
-| Pulse       | Control PulseAudio devices and volume                         |                  |                                                          |
-| Script      | Shell scripts as launcher options                             |                  | `$HOME/.local/share/pop-launcher/scripts`                |
-| Terminal    | Terminal or background commands                               | 'run '           |                                                          |
-| Web         | Web search                                                    | 'ddg ', 'g', ... | `$HOME/.local/share/pop-launcher/plugins/web/config.ron` |
-| Files       | Find files using fd/find                                      | 'find '          |                                                          |
-| Recent      | Recently-opened document search                               | 'recent '        |                                                          |
-| Calc        | Calculator with unit conversion (uses Qalculate! expressions) | '= '             |                                                          |
-| Help        | List available pop-launcher modes                             | '?'              |                                                          |
+Options:
+  -f, --format <FORMAT>              Input format: csv or json [default: csv]
+      --header <HEADER>              Whether the CSV input has a header row [default: true]
+  -m, --mode <MODE>                  Selection mode: row, column, cell.
+                                     Repeat for multiple [default: row]
+  -o, --output-format <FORMAT>       Output format: plain, json, csv [default: plain]
+      --no-filter                    Disable the filter bar
+  -t, --theme <PATH>                 Path to an alternate theme file
+  -s, --scale <SCALE>                Scale factor for the theme
+  -h, --help                         Print help
+```
 
+### Selection modes
+
+Use `--mode` to control what gets selected and output:
+
+```bash
+# Row mode (default): outputs the entire selected row
+echo -e "name,age\nAlice,30" | tabsel --mode row
+# Output: Alice,30
+
+# Cell mode: outputs a single cell value
+echo -e "name,age\nAlice,30" | tabsel --mode cell
+# Output: Alice
+
+# Column mode: outputs the column header name (or index)
+echo -e "name,age\nAlice,30" | tabsel --mode column
+# Output: name
+
+# Multiple modes: Shift+Tab cycles between them
+echo -e "name,age\nAlice,30" | tabsel --mode row --mode cell
+```
+
+### Output formats
+
+```bash
+# Plain (default): comma-separated for rows, raw value for cells
+echo -e "name,age\nAlice,30" | tabsel
+
+# JSON: structured output
+echo -e "name,age\nAlice,30" | tabsel --output-format json
+# Row output: {"name":"Alice","age":"30"}
+# Cell output: {"value":"Alice","row":0,"column":"name"}
+
+# CSV: properly quoted CSV
+echo -e "name,age\nAlice,30" | tabsel --output-format csv
+```
+
+### Exit codes
+
+- **0**: Selection confirmed (output written to stdout)
+- **1**: Cancelled (Escape), empty input, or error
 
 ## Theming
 
-Onagre will look for a theme file in `$XDG_CONFIG_HOME/onagre/theme.scss` and will fallback to the default theme if none
-is found or if your theme contains syntax errors. To ensure your theme is correctly formatted run `onagre` from the terminal.
+Tabsel looks for a theme file at `$XDG_CONFIG_HOME/tabsel/theme.scss` (typically `~/.config/tabsel/theme.scss`). Use `--theme` to specify an alternate file.
 
-For a detailed guide refer to [wiki -> theming](https://github.com/oknozor/onagre/wiki/Theming)
-, or take a look at the [theme examples directory](docs/theme_examples).
+See [docs/examples/](docs/examples/) for example themes.
 
-## Gallery
+### Theme structure
 
----
-<img src="docs/website/src/.vuepress/public/screenshots/default-theme.png" alt="default-theme-screenshot" style="display: block; margin-left: auto; margin-right: auto; width: 65%;"/>
+```scss
+.tabsel {
+  // Window properties
+  font-size: 16px;
+  width: 600px;
+  height: 400px;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-color: #585b70;
+  border-width: 2px;
+  border-radius: 8%;
+  padding: 8px;
+  --font-family: "monospace";
+  --exit-unfocused: false;
 
-*Default theme*
+  .container {
+    background: #181825;
+    padding: 4px;
 
----
-<img src="docs/website/src/.vuepress/public/screenshots/murz.png" alt="murz-theme-screenshot" style="display: block; margin-left: auto; margin-right: auto; width: 65%;"/>
+    .search {
+      // Filter bar container
+      background: #313244;
+      padding: 6px;
+      --height: 40px;
 
-[*Murz*](docs/theme_examples/murz.scss) (credit to [murz](https://github.com/Murzchnvok/rofi-collection))
+      .input {
+        // Text input inside filter bar
+        background: #45475a;
+        color: #cdd6f4;
+        --placeholder-color: #6c7086;
+        --selection-color: #89b4fa;
+        font-size: 15px;
+      }
+    }
 
----
-<img src="docs/website/src/.vuepress/public/screenshots/nord-rounded.png" alt="simple-theme-screenshot" style="display: block; margin-left: auto; margin-right: auto; width: 65%;"/>
+    .rows {
+      // Table rows container
+      --column-spacing: 12px;
 
-[*Nord*](docs/theme_examples/nord-rounded.scss)
+      .header {
+        // Header row
+        background: #313244;
+        color: #89b4fa;
+        font-size: 15px;
+        --separator-color: #585b70;
+        --separator-width: 2px;
+      }
 
----
-<img src="docs/website/src/.vuepress/public/screenshots/not-adwaita.png" alt="not-adwaita-theme-screenshot" style="display: block; margin-left: auto; margin-right: auto; width: 65%;"/>
+      .row {
+        // Default (unselected) data row
+        background: #1e1e2e;
+        color: #cdd6f4;
 
-[*Not-Adwaita*](docs/theme_examples/not-adwaita.scss)
+        .title { font-size: 14px; }
+      }
 
----
-<img src="docs/website/src/.vuepress/public/screenshots/solarized.png" alt="solarized-theme-screenshot" style="display: block; margin-left: auto; margin-right: auto; width: 65%;"/>
+      .row-selected {
+        // Selected data row
+        background: #45475a;
+        color: #f5e0dc;
+        border-color: #89b4fa;
+        border-width: 1px;
 
-[*Solarized*](docs/theme_examples/solarized.scss)
+        .title { color: #f5e0dc; font-size: 14px; }
+      }
+    }
 
----
-<img src="docs/website/src/.vuepress/public/screenshots/darcula.png" alt="darcula-theme-screenshot" style="display: block; margin-left: auto; margin-right: auto; width: 65%;"/>
+    .scrollable {
+      .scroller {
+        color: #585b70;
+        width: 6px;
+      }
+    }
+  }
+}
+```
 
-*Darcula*
+## Home-Manager module
 
----
-<img src="docs/website/src/.vuepress/public/screenshots/hollow.png" alt="darcula-theme-screenshot" style="display: block; margin-left: auto; margin-right: auto; width: 65%;"/>
+Add tabsel to your flake inputs, then use the home-manager module:
 
-*Hollow*
+```nix
+{
+  inputs.tabsel.url = "github:Talia-12/tabsel";
 
-___
+  # In your home-manager configuration:
+  imports = [ inputs.tabsel.homeManagerModules.default ];
 
-
-
-## Related projects
-
-- [pop-launcher](https://github.com/pop-os/launcher)
-- [pop-shell](https://github.com/pop-os/shell/)
-- [cosmic-launcher](https://github.com/pop-os/cosmic-launcher)
-
-## Code of conduct
-
-This project is bound by a [code of conduct](CODE_OF_CONDUCT.md) based on the [contributor covenant](https://www.contributor-covenant.org/) if you are not familiar with it, and want to contribute please, read it before going further.
-
-## Contributing
-
-Having a question or suggestion for a new feature ? Feel free to open an issue or submit a PR.
-Currently, what we need the most is feedback from users using different window managers and hardware.
-If Onagre does not work out of the box for you *please let us know*, so we can fix it.
+  programs.tabsel = {
+    enable = true;
+    style = ''
+      .tabsel {
+        background: #1e1e2e;
+        color: #cdd6f4;
+        // ...
+      }
+    '';
+  };
+}
+```
 
 ## License
 
-All the code in this repository is released under the MIT License, for more information take a look at the [LICENSE](LICENSE) file.
-
-## Thanks
-
-Credit to [@themou3ad](https://github.com/themou3ad) for the logo!
+MIT

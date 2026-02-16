@@ -98,10 +98,12 @@
         {
           options.programs.tabsel = {
             enable = mkEnableOption "tabsel";
-            package = mkPackageOption pkgs "tabsel" {
-              nullable = true;
+            package = mkOption {
+              type = types.nullOr types.package;
               default = self.packages.${pkgs.system}.default;
+              description = "The tabsel package to install.";
             };
+
             style = mkOption {
               type = types.lines;
               default = "";

@@ -1,0 +1,87 @@
+.tabsel {
+  --font-family: "Roboto";
+  font-size: 14px;
+  min-width: 400px;
+  max-width: 80%;
+  min-height: 250px;
+  max-height: 70%;
+  background: @surface@;
+  color: @on-surface@;
+  border-color: @outline@;
+  border-width: 2px;
+  border-radius: 24%;
+  padding: 12px;
+
+  .container {
+    background: @surface@;
+
+    .search {
+      background: @primary@;
+      border-color: @outline@;
+      border-width: 2px;
+      border-radius: 16%;
+      padding: 8px 16px;
+      --height: 40px;
+
+      .input {
+        background: @primary@;
+        color: @on-primary@;
+        --placeholder-color: @on-primary@;
+        --selection-color: @primary-container@;
+        border-radius: 16%;
+        padding: 4px;
+        font-size: 14px;
+      }
+    }
+
+    .rows {
+      background: @surface@;
+      padding: 4px;
+      --column-spacing: 8px;
+
+      .header {
+        background: @surface-container-high@;
+        color: @on-surface-variant@;
+        font-size: 14px;
+        padding: 8px 16px;
+        --separator-color: @outline-variant@;
+        --separator-width: 2px;
+      }
+
+      .row {
+        background: @surface@;
+        color: @on-surface@;
+        padding: 8px 16px;
+        border-radius: 16%;
+
+        .title {
+          font-size: 14px;
+          padding: 2px;
+        }
+      }
+
+      .row-selected {
+        background: @surface-container@;
+        color: @on-surface@;
+        padding: 8px 16px;
+        border-radius: 16%;
+
+        .title {
+          color: @on-surface@;
+          font-size: 14px;
+          padding: 2px;
+        }
+      }
+    }
+
+    .scrollable {
+      background: @surface@;
+
+      .scroller {
+        color: @outline-variant@;
+        border-radius: 4%;
+        width: 6px;
+      }
+    }
+  }
+}

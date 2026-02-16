@@ -23,6 +23,21 @@ pub mod entries;
 pub mod state;
 pub mod style;
 
+/// Insert zero-width spaces after characters that are reasonable line-break
+/// points so that cosmic-text's word-level wrapping can break long tokens
+/// like UUIDs, file paths, and URLs.
+fn add_word_break_hints(s: &str) -> String {
+    const ZWS: char = '\u{200B}';
+    let mut out = String::with_capacity(s.len() + s.len() / 4);
+    for ch in s.chars() {
+        out.push(ch);
+        if matches!(ch, '-' | '_' | '/' | '\\' | '.' | ':' | ',' | ';') {
+            out.push(ZWS);
+        }
+    }
+    out
+}
+
 pub fn run(
     table: Table,
     available_modes: Vec<SelectionMode>,
@@ -193,9 +208,11 @@ impl Application for Tabsel {
                 .iter()
                 .map(|h| {
                     Container::new(
-                        text(h.as_str()).size(header_style.font_size),
+                        text(add_word_break_hints(h.as_str()))
+                            .size(header_style.font_size),
                     )
                     .width(Length::FillPortion(1))
+                    .clip(true)
                     .into()
                 })
                 .collect();
@@ -231,11 +248,13 @@ impl Application for Tabsel {
 
                     let cell_text = row_data.get(col).map(|s| s.as_str()).unwrap_or("");
                     Container::new(
-                        text(cell_text).size(cell_style.title.font_size),
+                        text(add_word_break_hints(cell_text))
+                            .size(cell_style.title.font_size),
                     )
                     .style(iced::theme::Container::Custom(Box::new(&cell_style.title)))
                     .padding(cell_style.title.padding.to_iced_padding())
                     .width(Length::FillPortion(1))
+                    .clip(true)
                     .into()
                 })
                 .collect();

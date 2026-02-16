@@ -32,7 +32,7 @@ Pipe tabular data into tabsel:
 echo -e "name,age,city\nAlice,30,NYC\nBob,25,LA\nCarol,35,Chicago" | tabsel
 
 # JSON array of objects
-echo '[{"name":"Alice","age":30},{"name":"Bob","age":25}]' | tabsel --format json
+echo '[{"name":"Alice","age":30},{"name":"Bob","age":25}]' | tabsel --input-format json
 
 # CSV without headers
 echo -e "Alice,30\nBob,25" | tabsel --header false
@@ -55,7 +55,7 @@ echo -e "Alice,30\nBob,25" | tabsel --header false
 tabsel [OPTIONS]
 
 Options:
-  -f, --format <FORMAT>              Input format: csv or json [default: csv]
+  -i, --input-format <FORMAT>        Input format: csv or json [default: csv]
       --header <HEADER>              Whether the CSV input has a header row [default: true]
   -m, --mode <MODE>                  Selection mode: row, column, cell.
                                      Repeat for multiple [default: row]

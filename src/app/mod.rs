@@ -43,6 +43,7 @@ pub fn run(
     available_modes: Vec<SelectionMode>,
     filter_enabled: bool,
     output_format: OutputFormat,
+    hidden_columns: Vec<usize>,
     window_size: (f32, f32),
 ) -> iced::Result {
     debug!("Starting Tabsel in debug mode");
@@ -82,6 +83,7 @@ pub fn run(
             available_modes,
             filter_enabled,
             output_format,
+            hidden_columns,
         },
         fonts: vec![],
     })
@@ -109,6 +111,7 @@ pub struct TabselFlags {
     pub available_modes: Vec<SelectionMode>,
     pub filter_enabled: bool,
     pub output_format: OutputFormat,
+    pub hidden_columns: Vec<usize>,
 }
 
 impl Application for Tabsel {
@@ -119,12 +122,21 @@ impl Application for Tabsel {
 
     fn new(flags: TabselFlags) -> (Self, Command<Self::Message>) {
         let active_mode = flags.available_modes[0];
+        let num_cols = flags
+            .table
+            .headers
+            .as_ref()
+            .map_or_else(|| flags.table.rows.first().map_or(0, |r| r.len()), |h| h.len());
+        let visible_columns: Vec<usize> = (0..num_cols)
+            .filter(|c| !flags.hidden_columns.contains(c))
+            .collect();
         let mut state = state::State {
             table: flags.table,
             active_mode,
             available_modes: flags.available_modes,
             filter_enabled: flags.filter_enabled,
             output_format: flags.output_format,
+            visible_columns,
             ..Default::default()
         };
         state.init_filtered_indices();
@@ -172,7 +184,7 @@ impl Application for Tabsel {
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        let num_cols = self.state.num_columns();
+        let visible_cols = &self.state.visible_columns;
 
         let mut app_column: Vec<Element<'_, Self::Message>> = Vec::new();
 
@@ -204,9 +216,10 @@ impl Application for Tabsel {
         // Header row (if present)
         if let Some(headers) = &self.state.table.headers {
             let header_style = &THEME.app_container.rows.header;
-            let header_cells: Vec<Element<'_, Self::Message>> = headers
+            let header_cells: Vec<Element<'_, Self::Message>> = visible_cols
                 .iter()
-                .map(|h| {
+                .map(|&col| {
+                    let h = &headers[col];
                     Container::new(
                         text(add_word_break_hints(h.as_str()))
                             .size(header_style.font_size),
@@ -237,16 +250,18 @@ impl Application for Tabsel {
         // Data rows (filtered)
         for (filtered_pos, &actual_idx) in self.state.filtered_indices.iter().enumerate() {
             let row_data = &self.state.table.rows[actual_idx];
-            let cells: Vec<Element<'_, Self::Message>> = (0..num_cols)
-                .map(|col| {
-                    let selected = self.state.cell_is_selected(filtered_pos, col);
+            let cells: Vec<Element<'_, Self::Message>> = visible_cols
+                .iter()
+                .enumerate()
+                .map(|(vis_col, &actual_col)| {
+                    let selected = self.state.cell_is_selected(filtered_pos, vis_col);
                     let cell_style = if selected {
                         &THEME.app_container.rows.row_selected
                     } else {
                         &THEME.app_container.rows.row
                     };
 
-                    let cell_text = row_data.get(col).map(|s| s.as_str()).unwrap_or("");
+                    let cell_text = row_data.get(actual_col).map(|s| s.as_str()).unwrap_or("");
                     Container::new(
                         text(add_word_break_hints(cell_text))
                             .size(cell_style.title.font_size),
@@ -261,7 +276,7 @@ impl Application for Tabsel {
 
             // Row container uses selected style if any cell in the row is selected
             let row_has_selection =
-                (0..num_cols).any(|c| self.state.cell_is_selected(filtered_pos, c));
+                (0..visible_cols.len()).any(|c| self.state.cell_is_selected(filtered_pos, c));
             let row_style = if row_has_selection {
                 &THEME.app_container.rows.row_selected
             } else {
@@ -383,11 +398,13 @@ impl Tabsel {
                 output::format_row(table, fmt, actual_idx)
             }
             SelectionMode::Column => {
-                output::format_column(table, fmt, self.state.selected_col)
+                let actual_col = self.state.actual_col_index(self.state.selected_col);
+                output::format_column(table, fmt, actual_col)
             }
             SelectionMode::Cell => {
                 let actual_idx = self.state.actual_row_index(self.state.selected_row);
-                output::format_cell(table, fmt, actual_idx, self.state.selected_col)
+                let actual_col = self.state.actual_col_index(self.state.selected_col);
+                output::format_cell(table, fmt, actual_idx, actual_col)
             }
         };
 

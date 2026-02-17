@@ -11,6 +11,8 @@ pub struct State {
     pub filter_text: String,
     pub filtered_indices: Vec<usize>,
     pub output_format: OutputFormat,
+    /// Indices of columns that are visible (not hidden). Maps visible position to actual column index.
+    pub visible_columns: Vec<usize>,
 }
 
 impl State {
@@ -19,11 +21,12 @@ impl State {
     }
 
     pub fn num_columns(&self) -> usize {
-        self.table
-            .headers
-            .as_ref()
-            .map(|h| h.len())
-            .unwrap_or_else(|| self.table.rows.first().map_or(0, |r| r.len()))
+        self.visible_columns.len()
+    }
+
+    /// Maps a visible column index to the actual table column index.
+    pub fn actual_col_index(&self, visible_col: usize) -> usize {
+        self.visible_columns[visible_col]
     }
 
     /// Returns the actual table row index for a given filtered position.
@@ -98,6 +101,7 @@ impl Default for State {
             filter_text: String::new(),
             filtered_indices: Vec::new(),
             output_format: OutputFormat::Plain,
+            visible_columns: Vec::new(),
         }
     }
 }

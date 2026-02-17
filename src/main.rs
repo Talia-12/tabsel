@@ -66,6 +66,13 @@ struct Cli {
     mode: Vec<String>,
 
     #[arg(
+        long = "hidden-column",
+        short = 'H',
+        help = "Column(s) to hide from display but include in output. Use header names with --header, or 0-based column numbers without. Repeatable."
+    )]
+    hidden_column: Vec<String>,
+
+    #[arg(
         long = "no-filter",
         default_value = "false",
         help = "Disable the filter bar"
@@ -161,6 +168,40 @@ pub fn main() -> iced::Result {
         }
     };
 
+    // Resolve hidden columns to actual column indices
+    let num_cols = table
+        .headers
+        .as_ref()
+        .map_or_else(|| table.rows.first().map_or(0, |r| r.len()), |h| h.len());
+
+    let hidden_columns: Vec<usize> = cli
+        .hidden_column
+        .iter()
+        .map(|spec| {
+            if let Some(headers) = &table.headers {
+                headers
+                    .iter()
+                    .position(|h| h == spec)
+                    .unwrap_or_else(|| {
+                        eprintln!("Unknown header name: {spec}. Available headers: {}", headers.join(", "));
+                        std::process::exit(1);
+                    })
+            } else {
+                spec.parse::<usize>().unwrap_or_else(|_| {
+                    eprintln!("Invalid column number: {spec}. Must be a 0-based integer when --header is false");
+                    std::process::exit(1);
+                })
+            }
+        })
+        .collect();
+
+    for &col in &hidden_columns {
+        if col >= num_cols {
+            eprintln!("Column index {col} is out of range (table has {num_cols} columns)");
+            std::process::exit(1);
+        }
+    }
+
     let filter_enabled = !cli.no_filter;
 
     // Query screen dimensions for resolving percentage-based sizes
@@ -174,7 +215,7 @@ pub fn main() -> iced::Result {
     let max_h = THEME.max_height.resolve(screen_size.1);
 
     // Calculate content-preferred size
-    let (content_w, content_h) = calculate_content_size(&table, filter_enabled);
+    let (content_w, content_h) = calculate_content_size(&table, filter_enabled, &hidden_columns);
     info!(
         "Content size: ({}, {}), bounds: w=[{}, {}], h=[{}, {}]",
         content_w, content_h, min_w, max_w, min_h, max_h
@@ -190,6 +231,7 @@ pub fn main() -> iced::Result {
         available_modes,
         filter_enabled,
         output_format,
+        hidden_columns,
         (width, height),
     )
 }
@@ -218,15 +260,19 @@ fn get_screen_size() -> (f32, f32) {
         .unwrap_or((1920.0, 1080.0))
 }
 
-fn calculate_content_size(table: &Table, filter_enabled: bool) -> (f32, f32) {
+fn calculate_content_size(table: &Table, filter_enabled: bool, hidden_columns: &[usize]) -> (f32, f32) {
     let theme = &*THEME;
     let font_size = theme.font_size as f32;
     let char_width_estimate = font_size * 0.6;
 
-    let num_cols = table
+    let total_cols = table
         .headers
         .as_ref()
         .map_or_else(|| table.rows.first().map_or(0, |r| r.len()), |h| h.len());
+    let visible_cols: Vec<usize> = (0..total_cols)
+        .filter(|c| !hidden_columns.contains(c))
+        .collect();
+    let num_cols = visible_cols.len();
     let num_rows = table.rows.len();
 
     // Row height estimate:
@@ -320,8 +366,9 @@ fn calculate_content_size(table: &Table, filter_enabled: bool) -> (f32, f32) {
     // Width estimate
     let column_spacing = theme.app_container.rows.column_spacing as f32;
 
-    let col_widths: f32 = (0..num_cols)
-        .map(|col| {
+    let col_widths: f32 = visible_cols
+        .iter()
+        .map(|&col| {
             let header_len = table
                 .headers
                 .as_ref()
